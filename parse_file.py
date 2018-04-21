@@ -238,7 +238,6 @@ def conditional(s,pixels,wts_fs,wts_fpis):
 	return prod/sum_t
 
 def joint(s,pixels,wts_fs,wts_fpis):
-<<<<<<< HEAD
 	ws = 0
 	wfpis = 0
 	prod=1
@@ -250,11 +249,6 @@ def joint(s,pixels,wts_fs,wts_fpis):
 		wfpis = wfpis + math.pow(in2,2)
 	prod=prod/np.exp((lam/2)*(ws+wfpis))
 	#prod= prod - math.exp(1*(ws + wfpis))
-=======
-	prod=1
-	for pi in range(0,N):
-		prod=prod*np.exp(wts_fpis[0,s*2+pixels[pi]])*np.exp(wts_fs[0,s])
->>>>>>> 872998d8eb2fd7470b9763fbeb5f7f8b838543ad
 	return prod
 	
 
@@ -339,7 +333,6 @@ for m in range(0,M):
 			cond=conditional(s,pixels,wts_fs,wts_fpis)
 			for pi in range(0,N):
 				if x==train_features['pixels'][m][pi] and s==train_features['shape'][m]:
-<<<<<<< HEAD
 					prob[m,2*s+x]=prob[m,2*s+x]+cond
 			t=1
 			while emp_prob[m,2*s+x]-prob[m,2*s+x]>1e-3:
@@ -350,16 +343,6 @@ for m in range(0,M):
 				for pi in range(0,N):
 					if x==train_features['pixels'][m][pi] and s==train_features['shape'][m]:
 						prob[m,2*s+x]=prob[m,2*s+x]+cond
-=======
-					prob[m,2*s+x]=cond
-			t=1
-			while emp_prob[m,2*s+x]-prob[m,2*s+x]>1e-3:
-				wts_fpis[0,2*s+x]=wts_fpis[0,2*s+x]+(emp_prob[m,2*s+x]-prob[m,2*s+x])*(2.0/(2.0+t))
-				cond=conditional(s,pixels,wts_fs,wts_fpis)
-				for pi in range(0,N):
-					if x==train_features['pixels'][m][pi] and s==train_features['shape'][m]:
-						prob[m,2*s+x]=cond
->>>>>>> 872998d8eb2fd7470b9763fbeb5f7f8b838543ad
 				t=t+1
 
 			# count=0
@@ -401,14 +384,11 @@ for m in range(0,M):
 			cond=conditional(s,pixels,wts_fpi,wts_fs,wts_fpis,1)
 			prob[m,s]=cond
 		t=1
-<<<<<<< HEAD
 		while emp_prob[m,s]-prob[m,s]-(1*wts_fs[0,s])>1e-3:
 			wts_fs[0,s]=wts_fs[0,s]+(emp_prob[m,s]-prob[m,s]-(1*wts_fs[0,s]))*(2.0/(2.0+t))
 			#print wts_fs
-=======
-		while emp_prob[m,s]-prob[m,s]>1e-3:
-			wts_fs[0,s]=wts_fs[0,s]+(emp_prob[m,s]-prob[m,s])*(2.0/(2.0+t))
->>>>>>> 872998d8eb2fd7470b9763fbeb5f7f8b838543ad
 			cond=conditional(s,pixels,wts_fpi,wts_fs,wts_fpis,5)
 			prob[m,s]=cond
 			t=t+1
+			
+
