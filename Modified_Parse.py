@@ -180,7 +180,7 @@ def conditional(s,pixels,wts_fs,wts_fpis):
         if shape!=s:
             sum_t=sum_t+joint(shape,pixels,wts_fs,wts_fpis)
     print float(prod)/float(sum_t)
-    return float(prod)/float(sum_t)
+    return float(prod)/float(sum_t) #This is the part causing problem. This is inf/inf.
 
 def joint(s,pixels,wts_fs,wts_fpis):
     prod=1
