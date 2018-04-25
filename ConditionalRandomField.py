@@ -31,10 +31,6 @@ angle={}
 size={}
 elongation={}
 
-
-# In[2]:
-
-
 #extract individual feature and store it in appropriate dictionaries
 for i in range(1,M+1):
     features=lines[i].split();
@@ -55,12 +51,15 @@ for i in range(1,M+1):
     f=f+1
     elongation[i]=features[f]
 
+        
+
 ###################combines all features to a single dictionary
 features={}
 features['pixels']=pixels
 features['color']=color
 features['shape']=shape
 
+#####################converts feature dictionart to one single data frame
 data=pd.DataFrame([features])
 
 #########################split into train and test data
@@ -80,7 +79,8 @@ j=0
 t=0
 
 
-# In[3]:
+
+# In[2]:
 
 
 for i in range(1,M+1):
@@ -138,14 +138,22 @@ for i in range(1,M+1):
         test_features['shape'][t]=features['shape'][i]
         count2=count2+1
         t=t+1
-
-
-# In[157]:
-
-
 M=len(train_features['shape'])
 
-wts_fpi=np.ones((1,2))
+
+# In[ ]:
+
+
+
+    
+
+
+# In[3]:
+
+
+
+
+lam=0.5
 wts_fpis=np.ones((1,6))
 wts_fs=np.ones((1,3))
 
@@ -170,42 +178,63 @@ for i in range(N+1,T+1):
     neighbors[i]=n
 
 
-# In[158]:
+# In[4]:
 
 
+N = 50
 def conditional(s,pixels,wts_fs,wts_fpis):
     prod=joint(s,pixels,wts_fs,wts_fpis)
     sum_t=prod
     for shape in range(0,3):
         if shape!=s:
             sum_t=sum_t+joint(shape,pixels,wts_fs,wts_fpis)
-    #print "in condi.. pls work"
-    #print prod/sum_t
     return prod/sum_t
 
 def joint(s,pixels,wts_fs,wts_fpis):
     ws = 0
     wfpis = 0
-    prod=0
+    prod=1
+    wts_fs = wts_fs/max(wts_fs)
+    wts_fpis = wts_fpis/max(wts_fpis)
     for pi in range(0,N):
-        prod=prod*math.exp(wts_fpis[0,s*2+pixels[pi]])*math.exp(wts_fs[0,s])
+        bcount=0
+        '''r=pi/32
+        c=pi%32
+        if r-1>0:
+            pin=(r-1)*32+c
+            if pixels[pi]!=pixels[pin]:
+                bcount=bcount+1
+        if r+1<32:
+            pin=(r+1)*32+c
+            if pixels[pi]!=pixels[pin]:
+                bcount=bcount+1
+        if c-1>0:
+            pin=r*32+(c-1)
+            if pixels[pi]!=pixels[pin]:
+                bcount=bcount+1
+        if c+1<32:
+            pin=r*32+(c+1)
+            if pixels[pi]!=pixels[pin]:
+                bcount=bcount+1'''
+        prod=prod*np.exp(wts_fpis[0,s*2+pixels[pi]])*np.exp(wts_fs[0,s])*np.exp(bcount)
+                
     for in1 in wts_fs[0]:
         ws = ws + math.pow(in1,2)
     for in2 in wts_fpis[0]:
         wfpis = wfpis + math.pow(in2,2)
-    prod= prod - math.exp(1*(ws + wfpis))
-    #print "in joint"
-    #print prod
+    prod=prod/np.exp((lam/2)*(ws+wfpis))
+    #prod= prod - math.exp(1*(ws + wfpis))
     return prod
 
 
-# In[159]:
+# In[5]:
 
 
+#####calculate empirical probability for gradient wrt 2nd parameter
 emp_prob=np.zeros((M,6))
 
 for m in range(0,M):
-    for pi in range(0,1024):
+    for pi in range(0,N):
         for s in range(0,3):
             for x in range(0,2):
                 if s==int(train_features['shape'][m]) and x==train_features['pixels'][m][pi]:
@@ -215,8 +244,7 @@ emp_prob=emp_prob/M*1.0
 print emp_prob
 
 
-# In[160]:
-
+# In[ ]:
 
 
 #############calculate marginal probability for gradient wrt 2nd parameter
@@ -227,29 +255,39 @@ for m in range(0,M):
     for pi in range(0,N):
         pixels.append(train_features['pixels'][m][pi])
     for s in range(0,3):
-        cond=conditional(s,pixels,wts_fs,wts_fpis)
         for x in range(0,2):
+            cond=conditional(s,pixels,wts_fs,wts_fpis)
+           # print cond
             for pi in range(0,N):
+                #print type(train_features['pixels'][m][pi])
+                #print type(train_features['shape'][m])
                 if x==train_features['pixels'][m][pi] and s==int(train_features['shape'][m]):
                     prob[m,2*s+x]=prob[m,2*s+x]+cond
-                    print cond
+                    #print "hi"
             t=1
-            #print emp_prob[m,2*s+x]-prob[m,2*s+x]-(0.5*wts_fpis[0,2*s+x])
-            while (abs(emp_prob[m,2*s+x]-prob[m,2*s+x]-(1*wts_fpis[0,2*s+x])))>1e-1:
-                wts_fpis[0,2*s+x]=wts_fpis[0,2*s+x]+(emp_prob[m,2*s+x]-prob[m,2*s+x]-(1*wts_fpis[0,2*s+x]))*(2.0/(2.0+t))
-                print wts_fpis
+           # print "emp ",emp_prob[m,2*s+x]
+           # print "prob ",prob[m,2*s+x]
+            #print "diff ",emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])
+            while (emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])<-1e-1) or (emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])>1e-1):
+                #print "join me here ",emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])
+                #print "hello"
+                #print prob
+                wts_fpis[0,2*s+x]=wts_fpis[0,2*s+x]+((emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x]))*(2.0/(2.0+t)))
+                #print wts_fpis
                 cond=conditional(s,pixels,wts_fs,wts_fpis)
-                #print (emp_prob[m,2*s+x]-prob[m,2*s+x]-(math.exp(-2)*wts_fpis[0,2*s+x]))
                 for pi in range(0,N):
                     if x==train_features['pixels'][m][pi] and s==int(train_features['shape'][m]):
-                        prob[m,2*s+x]=cond
+                        prob[m,2*s+x]=prob[m,2*s+x]+cond
+                        #print "hi1"
                 t=t+1
-print wts_fpis
+        
+print wts_fpis    
 
 
-# In[109]:
+# In[ ]:
 
 
+#####calculate empirical probability for gradient wrt 3rd parameter
 emp_prob=np.zeros((M,3))
 
 for m in range(0,M):
@@ -259,23 +297,45 @@ for m in range(0,M):
 
 
 emp_prob=emp_prob/M*1.0
+print emp_prob
+
+
+# In[ ]:
+
+
 #############calculate marginal probability for gradient wrt 2nd parameter
 prob=np.zeros((M,3))
 
 for m in range(0,M):
     pixels=[]
-    for pi in range(0,1024):
+    for pi in range(0,N):
         pixels.append(train_features['pixels'][m][pi])
     for s in range(0,3):
         if s==int(train_features['shape'][m]):
             cond=conditional(s,pixels,wts_fs,wts_fpis)
+            #print "cond ",cond
             prob[m,s]=cond
         t=1
-        while (emp_prob[m,s]-prob[m,s]-(math.exp(-2)*wts_fs[0,s]))>1e-3:
-            wts_fs[0,s]=wts_fs[0,s]+(emp_prob[m,s]-prob[m,s]-(math.exp(-2)*wts_fs[0,s]))*(2.0/(2.0+t))
-            print (emp_prob[m,s]-prob[m,s]-(math.exp(-2)*wts_fs[0,s]))
-            cond=conditional(s,pixels,wts_fpi,wts_fs,wts_fpis,5)
-            prob[m,s]=cond
+        #print emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s])
+        while (emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s])<-1e-1) or (emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s])>1e-1):
+            wts_fs[0,s]=wts_fs[0,s]+(emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s]))*(2.0/(2.0+t))
+            #print wts_fs
+            if s==int(train_features['shape'][m]):
+                cond=conditional(s,pixels,wts_fs,wts_fpis)
+                prob[m,s]=cond
             t=t+1
-print wts_fs            
+print wts_fs
+
+
+# In[ ]:
+
+
+cond=np.zeros((1,3))
+m=0
+for pi in range(0,N):
+    pixels.append(train_features['pixels'][m][pi])
+for s in range(0,3):
+    cond[0,s]=conditional(s,pixels,wts_fs,wts_fpis)
+    print cond[0,s]
+    
 
