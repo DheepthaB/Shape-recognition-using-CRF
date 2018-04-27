@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import math
 
-file=open('C:\Users\mesth\Documents\SPRING2018\Stats for AI and ML\Project\shapeset.tar\shapeset\shapeset1_1cs_2p_3o.5000.valid.amat',"r");   #.amat file containing feature information
+file=open('E:\Dheeptha\MS\Sem2\Projects\Stats\shapeset\shapeset1_1cs_2p_3o.5000.valid.amat',"r");   #.amat file containing feature information
 
 lines=[]     #contains each line of .amat file
 
@@ -59,8 +59,9 @@ features['pixels']=pixels
 features['color']=color
 features['shape']=shape
 
-#####################converts feature dictionart to one single data frame
-data=pd.DataFrame([features])
+
+# In[2]:
+
 
 #########################split into train and test data
 train_features={}
@@ -141,16 +142,66 @@ for i in range(1,M+1):
 M=len(train_features['shape'])
 
 
-# In[ ]:
-
-
-
-    
-
-
 # In[3]:
 
 
+img={}
+for i in range(0,M):
+    img[i]=[]
+pix=np.zeros((32,32))
+for m in range(0,M):
+    pi=0
+    for i in range(0,32):
+        for j in range(0,32):
+            pix[i,j]=train_features['pixels'][m][pi]
+            pi=pi+1
+    img[m]=pix
+    
+blocks={}
+for i in range(0,M):
+    blocks[i]={}
+for m in range(0,M):
+    k=0
+    r=0
+    c=0
+    for i in range(0,4):
+        c=0
+        for j in range(0,4):
+            blocks[m][k]=img[m][r:r+8,c:c+8]
+            k=k+1
+            c=c+8
+        r=r+8
+
+
+# flag={}
+# for i in range(0,M):
+#     flag[i]={}
+    
+# for m in range(0,M):
+#     for b in range(0,16):
+#         for i in range(0,7):
+#             for j in range(0,7):
+#                 if blocks[m][b][i,j]==1:
+#                     if blocks[m][b][i,j]==blocks[m][b][i+1,j] or blocks[m][b][i,j]==blocks[m][b][i,j+1]:
+#                         flag[m][b]=1
+#                     else:
+#                         flag[m][b]=0
+
+
+# In[33]:
+
+
+pixels={}
+for i in range(0,M):
+    pixels[i]=[]
+for m in range(0,M):
+    for b in range(0,16):
+        if 0 in blocks[m][b] and 1 in blocks[m][b]:
+            pixels[m].append(blocks[m][b].flatten())
+
+
+
+# In[41]:
 
 
 lam=0.5
@@ -178,46 +229,28 @@ for i in range(N+1,T+1):
     neighbors[i]=n
 
 
-# In[4]:
+# In[42]:
 
 
-N = 50
-def conditional(s,pixels,wts_fs,wts_fpis):
-    prod=joint(s,pixels,wts_fs,wts_fpis)
+N = 1024
+def conditional(s,pix,wts_fs,wts_fpis):
+    prod=joint(s,pix,wts_fs,wts_fpis)
     sum_t=prod
     for shape in range(0,3):
         if shape!=s:
-            sum_t=sum_t+joint(shape,pixels,wts_fs,wts_fpis)
+            sum_t=sum_t+joint(shape,pix,wts_fs,wts_fpis)
     return prod/sum_t
 
-def joint(s,pixels,wts_fs,wts_fpis):
+def joint(s,pix,wts_fs,wts_fpis):
     ws = 0
     wfpis = 0
     prod=1
-    wts_fs = wts_fs/max(wts_fs)
-    wts_fpis = wts_fpis/max(wts_fpis)
-    for pi in range(0,N):
-        bcount=0
-        '''r=pi/32
-        c=pi%32
-        if r-1>0:
-            pin=(r-1)*32+c
-            if pixels[pi]!=pixels[pin]:
-                bcount=bcount+1
-        if r+1<32:
-            pin=(r+1)*32+c
-            if pixels[pi]!=pixels[pin]:
-                bcount=bcount+1
-        if c-1>0:
-            pin=r*32+(c-1)
-            if pixels[pi]!=pixels[pin]:
-                bcount=bcount+1
-        if c+1<32:
-            pin=r*32+(c+1)
-            if pixels[pi]!=pixels[pin]:
-                bcount=bcount+1'''
-        prod=prod*np.exp(wts_fpis[0,s*2+pixels[pi]])*np.exp(wts_fs[0,s])*np.exp(bcount)
-                
+    
+    s1=sum(wts_fpis[0])
+    s2=sum(wts_fs[0])
+
+    for pi in range(0,len(pix)):
+        prod=prod*np.exp(wts_fpis[0,s*2+int(pix[pi])])*np.exp(wts_fs[0,s])
     for in1 in wts_fs[0]:
         ws = ws + math.pow(in1,2)
     for in2 in wts_fpis[0]:
@@ -227,18 +260,19 @@ def joint(s,pixels,wts_fs,wts_fpis):
     return prod
 
 
-# In[5]:
+# In[36]:
 
 
 #####calculate empirical probability for gradient wrt 2nd parameter
 emp_prob=np.zeros((M,6))
 
 for m in range(0,M):
-    for pi in range(0,N):
-        for s in range(0,3):
-            for x in range(0,2):
-                if s==int(train_features['shape'][m]) and x==train_features['pixels'][m][pi]:
-                    emp_prob[m,2*s+x]=emp_prob[m,2*s+x]+1
+    for b in range(0,len(pixels[m])):
+        for pix in pixels[m][b]:
+            for s in range(0,3):
+                for x in range(0,2):
+                    if s==int(train_features['shape'][m]) and x==pix:
+                        emp_prob[m,2*s+x]=emp_prob[m,2*s+x]+1
 
 emp_prob=emp_prob/M*1.0
 print emp_prob
@@ -251,37 +285,36 @@ print emp_prob
 prob=np.zeros((M,6))
 
 for m in range(0,M):
-    pixels=[]
-    for pi in range(0,N):
-        pixels.append(train_features['pixels'][m][pi])
+    pix=[]
+    for b in range(0,len(pixels[m])): 
+        for p in pixels[m][b]:
+            pix.append(p)
     for s in range(0,3):
         for x in range(0,2):
-            cond=conditional(s,pixels,wts_fs,wts_fpis)
-           # print cond
-            for pi in range(0,N):
-                #print type(train_features['pixels'][m][pi])
-                #print type(train_features['shape'][m])
-                if x==train_features['pixels'][m][pi] and s==int(train_features['shape'][m]):
+            cond=conditional(s,pix,wts_fs,wts_fpis)
+            #print cond
+            for pi in range(0,len(pix)):
+                if x==pix[pi] and s==int(train_features['shape'][m]):
                     prob[m,2*s+x]=prob[m,2*s+x]+cond
-                    #print "hi"
             t=1
            # print "emp ",emp_prob[m,2*s+x]
            # print "prob ",prob[m,2*s+x]
-            #print "diff ",emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])
+            #print "diff ",emp_prob[m,2*s+x]-prob[m,2*s+x]
             while (emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])<-1e-1) or (emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])>1e-1):
-                #print "join me here ",emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])
+                #print "join me here ", prob[m,2*s+x], emp_prob[m,2*s+x], emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x])
                 #print "hello"
                 #print prob
                 wts_fpis[0,2*s+x]=wts_fpis[0,2*s+x]+((emp_prob[m,2*s+x]-prob[m,2*s+x]-(lam*wts_fpis[0,2*s+x]))*(2.0/(2.0+t)))
                 #print wts_fpis
-                cond=conditional(s,pixels,wts_fs,wts_fpis)
-                for pi in range(0,N):
-                    if x==train_features['pixels'][m][pi] and s==int(train_features['shape'][m]):
+                cond=conditional(s,pix,wts_fs,wts_fpis)
+                #print cond
+                for pi in range(0,len(pix)):
+                    if x==pix[pi] and s==int(train_features['shape'][m]):
                         prob[m,2*s+x]=prob[m,2*s+x]+cond
                         #print "hi1"
                 t=t+1
         
-print wts_fpis    
+print wts_fpis 
 
 
 # In[ ]:
@@ -307,9 +340,10 @@ print emp_prob
 prob=np.zeros((M,3))
 
 for m in range(0,M):
-    pixels=[]
-    for pi in range(0,N):
-        pixels.append(train_features['pixels'][m][pi])
+    pix=[]
+    for b in range(0,len(pixels[m])): 
+        for p in pix[m][b]:
+            pix.append(p)
     for s in range(0,3):
         if s==int(train_features['shape'][m]):
             cond=conditional(s,pixels,wts_fs,wts_fpis)
@@ -321,7 +355,7 @@ for m in range(0,M):
             wts_fs[0,s]=wts_fs[0,s]+(emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s]))*(2.0/(2.0+t))
             #print wts_fs
             if s==int(train_features['shape'][m]):
-                cond=conditional(s,pixels,wts_fs,wts_fpis)
+                cond=conditional(s,pix,wts_fs,wts_fpis)
                 prob[m,s]=cond
             t=t+1
 print wts_fs
@@ -332,10 +366,11 @@ print wts_fs
 
 cond=np.zeros((1,3))
 m=0
-for pi in range(0,N):
-    pixels.append(train_features['pixels'][m][pi])
+pix=[]
+    for b in range(0,len(pixels[m])): 
+        for p in pix[m][b]:
+            pix.append(p)
 for s in range(0,3):
-    cond[0,s]=conditional(s,pixels,wts_fs,wts_fpis)
+    cond[0,s]=conditional(s,pix,wts_fs,wts_fpis)
     print cond[0,s]
-    
 
