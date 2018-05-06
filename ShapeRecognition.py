@@ -1,13 +1,23 @@
 
-# coding: utf-8
+# @authors: Dheeptha, Deeksha, Akash
 
-# In[1]:
+'''
+* performs shape detection in grayscale images
+* split data into train and test
+* Performs feature selection
+* Performs MLE to learn parameters
+* Perfroms inference by directly plugging in updtaed parameters in conditional probability equation
+* Finds accuarcy of the CRF model
+'''
 
 
 import re,sys
 import pandas as pd
 import numpy as np
 import math
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+
 
 file=open('E:\Dheeptha\MS\Sem2\Projects\Stats\shapeset\shapeset1_1cs_2p_3o.5000.valid.amat',"r");   #.amat file containing feature information
 
@@ -19,7 +29,9 @@ for line in file.readlines():
 
 first_line=lines[0].split()   # gives the size of data set and no of values in each line
 
-M=int(first_line[1]);   #Number of training instances
+M=int(first_line[1]);  
+
+
 
 pixels={}    #dictionary to maintain pixel information of every image of size 32x32. 
 #dictionaries to maintain feature values
@@ -51,7 +63,7 @@ for i in range(1,M+1):
     f=f+1
     elongation[i]=features[f]
 
-        
+
 
 ###################combines all features to a single dictionary
 features={}
@@ -60,7 +72,6 @@ features['color']=color
 features['shape']=shape
 
 
-# In[2]:
 
 
 #########################split into train and test data
@@ -81,9 +92,6 @@ t=0
 
 
 
-# In[2]:
-
-
 for i in range(1,M+1):
     if features['shape'][i]=='0' and count0<1250:
         train_features['color'][j]=round(features['color'][i]/(7*1.0),2)
@@ -98,7 +106,7 @@ for i in range(1,M+1):
         test_features['color'][t]=round(features['color'][i]/(7*1.0),2)
         p=[]
         for k in range(0,1024):
-            p.append(int((round(float(features['pixels'][i,k]),2)==train_features['color'][t])))
+            p.append(int((round(float(features['pixels'][i,k]),2)==test_features['color'][t])))
         test_features['pixels'][t]=p
         test_features['shape'][t]=features['shape'][i]
         count0=count0+1
@@ -116,7 +124,7 @@ for i in range(1,M+1):
         test_features['color'][t]=round(features['color'][i]/(7*1.0),2)
         p=[]
         for k in range(0,1024):
-            p.append(int((round(float(features['pixels'][i,k]),2)==train_features['color'][t])))
+            p.append(int((round(float(features['pixels'][i,k]),2)==test_features['color'][t])))
         test_features['pixels'][t]=p
         test_features['shape'][t]=features['shape'][i]
         count1=count1+1
@@ -134,105 +142,84 @@ for i in range(1,M+1):
         test_features['color'][t]=round(features['color'][i]/(7*1.0),2)
         p=[]
         for k in range(0,1024):
-            p.append(int((round(float(features['pixels'][i,k]),2)==train_features['color'][t])))
+            p.append(int((round(float(features['pixels'][i,k]),2)==test_features['color'][t])))
         test_features['pixels'][t]=p
         test_features['shape'][t]=features['shape'][i]
         count2=count2+1
         t=t+1
-M=len(train_features['shape'])
+MTrain=len(train_features['shape'])   #Number of training samples
+MTest=len(test_features['shape'])     #Number of testing samples
 
 
-# In[3]:
 
+#obtains the pixels along the border blocks that contain just the shape borders to facilitate easy shape detection
+def getPixels(M,allPixels):
+    img={}
+    for i in range(0,M):
+        img[i]=[]
+    pix=np.zeros((32,32))
+    for m in range(0,M):
+        pi=0
+        for i in range(0,32):
+            for j in range(0,32):
+                pix[i,j]=allPixels[m][pi]
+                pi=pi+1
+        img[m]=pix
 
-img={}
-for i in range(0,M):
-    img[i]=[]
-pix=np.zeros((32,32))
-for m in range(0,M):
-    pi=0
-    for i in range(0,32):
-        for j in range(0,32):
-            pix[i,j]=train_features['pixels'][m][pi]
-            pi=pi+1
-    img[m]=pix
-    
-blocks={}
-for i in range(0,M):
-    blocks[i]={}
-for m in range(0,M):
-    k=0
-    r=0
-    c=0
-    for i in range(0,4):
+    blocks={}
+    for i in range(0,M):
+        blocks[i]={}
+    for m in range(0,M):
+        k=0
+        r=0
         c=0
-        for j in range(0,4):
-            blocks[m][k]=img[m][r:r+8,c:c+8]
-            k=k+1
-            c=c+8
-        r=r+8
+        for i in range(0,8):
+            c=0
+            for j in range(0,8):
+                blocks[m][k]=img[m][r:r+4,c:c+4]
+                k=k+1
+                c=c+4
+            r=r+4
+               
+    pixels={}
+    for i in range(0,M):
+        pixels[i]=[]
+    for m in range(0,M):
+        for b in range(0,64):
+            if 1 in blocks[m][b] :  
+                pixels[m].append(blocks[m][b].flatten())
 
-
-# flag={}
-# for i in range(0,M):
-#     flag[i]={}
-    
-# for m in range(0,M):
-#     for b in range(0,16):
-#         for i in range(0,7):
-#             for j in range(0,7):
-#                 if blocks[m][b][i,j]==1:
-#                     if blocks[m][b][i,j]==blocks[m][b][i+1,j] or blocks[m][b][i,j]==blocks[m][b][i,j+1]:
-#                         flag[m][b]=1
-#                     else:
-#                         flag[m][b]=0
-
-
-# In[4]:
-
-
-pixels={}
-for i in range(0,M):
-    pixels[i]=[]
-for m in range(0,M):
-    for b in range(0,16):
-        if 0 in blocks[m][b] and 1 in blocks[m][b]:
-            pixels[m].append(blocks[m][b].flatten())
+    for m in range(0,M):
+        l =[] 
+        for b in range(0,len(pixels[m])): 
+            for p in pixels[m][b]:
+                l.append(p)
+        if(m==0):
+            pix= np.array(l)
+        else:
+            pix = np.vstack((pix,np.array(l)))
+    return pix
 
 
 
-# In[113]:
+##Initialising weight parameters to random float values
+wts_fpis=6*np.random.random_sample((1,6))
+wts_fs=3*np.random.random_sample((1,3))
+
+## finds the number of pixel values having ones of every sample. done as a pre computation to decrease the running time
+def countZeros(pix):
+    count=0
+    count= list(pix).count(0)
+    return count
+
+## finds the number of pixel values having zeros of every sample. done as a pre computation to decrease the running time
+def countOnes(pix):
+    count=0
+    count=list(pix).count(1)
+    return count
 
 
-lam=0.5
-wts_fpis=np.ones((1,6))
-wts_fs=np.ones((1,3))
-
-
-###Factor graph
-N=1024
-T=2*N+1
-k=3
-neighbors={}
-n=[]
-for i in range(N+1,T):
-    n.append(i)
-neighbors[N]=n
-
-for i in range(0,N):
-    neighbors[i]=[N+1+i]
-
-for i in range(N+1,T+1):
-    n=[]
-    n.append(N)
-    n.append(i-1-N)
-    neighbors[i]=n
-
-
-# In[114]:
-
-
-N = 1024
+#inference subroutine of MLE algorithm
 def conditional(s,pix,wts_fs,wts_fpis):
     wts_fpis[0]=wts_fpis[0]/np.linalg.norm(wts_fpis[0])
     wts_fs[0]=wts_fs[0]/np.linalg.norm(wts_fs[0])
@@ -241,186 +228,122 @@ def conditional(s,pix,wts_fs,wts_fpis):
     for shape in range(0,3):
         if shape!=s:
             sum_t=sum_t+joint(shape,pix,wts_fs,wts_fpis)
-    return prod/sum_t
+    return prod/float(sum_t)
 
 def joint(s,pix,wts_fs,wts_fpis):
-    ws = 0
-    wfpis = 0
-    prod=1    
-    for pi in range(0,len(pix)):
-        prod=prod*np.exp(wts_fpis[0,s*2+int(pix[pi])])*np.exp(wts_fs[0,s])
-#     for in1 in wts_fs[0]:
-#         ws = ws + math.pow(in1,2)
-#     for in2 in wts_fpis[0]:
-#         wfpis = wfpis + math.pow(in2,2)
-#     prod=prod/np.exp((lam/2)*(ws+wfpis))
-    #prod= prod - math.exp(1*(ws + wfpis))
+    pixLength = len(pix)
+    shape = np.exp(wts_fs[0,s])
+    prod=pow(shape,pixLength)
+    count0 = countZeros(pix)
+    count1 = countOnes(pix)
+    wtfpis_zero = np.exp(wts_fpis[0,s*2+0])
+    wtfpis_ones = np.exp(wts_fpis[0,s*2+1])
+    prod = prod*pow(wtfpis_zero, count0)*pow(wtfpis_ones, count1)
     return prod
 
 
-# In[115]:
+############# MLE Algorithm for 1st parameter that combines pixels and shape labels ######################
 
-
-#####calculate empirical probability for gradient wrt 2nd parameter
+###calculates empirical probabilities
 emp_prob=np.zeros((1,6))
 
-for m in range(0,M):
-    for b in range(0,len(pixels[m])):
-        for pix in pixels[m][b]:
-            for s in range(0,3):
-                for x in range(0,2):
-                    if s==int(train_features['shape'][m]) and x==pix:
-                        emp_prob[0,2*s+x]=emp_prob[0,2*s+x]+1
-                        
-    
+pix=getPixels(MTrain,train_features['pixels'])
+for m in range(0,MTrain):
+    for pix1 in pix[m]:
+        for s in range(0,3):
+            for x in range(0,2):
+                if s==int(train_features['shape'][m]) and x==pix1:
+                    emp_prob[0,2*s+x]=emp_prob[0,2*s+x]+1
 
-emp_prob=emp_prob/M*1.0
-print emp_prob
+emp_prob=emp_prob/MTrain*1.0
+########################################
 
 
-# In[116]:
-
-
-#############calculate marginal probability for gradient wrt 2nd parameter
-
-
+###calculates derivative of log(Z) wrt first parameter that combines pixels and shape labels
+pix=getPixels(MTrain,train_features['pixels'])
+cond=np.zeros((1,3))
+count = np.zeros((1,2))
 its=100
 
-# for m in range(0,M):
-#     pix=[]
-#     for b in range(0,len(pixels[m])): 
-#         for p in pixels[m][b]:
-#             pix.append(p)
-#     for t in range(0,its):
-#         exp_prob=np.zeros((1,6))
-#         for s in range(0,3):
-#             cond=conditional(s,pix,wts_fs,wts_fpis)
-#             for x in range(0,2):
-#                 exp_prob[0,2*s+x]=exp_prob[0,2*s+x]+cond
-#         grad=emp_prob-exp_prob
-#         wts_fpis=wts_fpis+grad*(2.0/(2.0+t))
-#         if np.linalg.norm(grad)<1e-3:
-#             break
-    
+pix=getPixels(MTrain,train_features['pixels'])
 for t in range(0,its):
+    print t
     exp_prob=np.zeros((1,6))
-    for m in range(0,M):
-        pix=[]
-        for b in range(0,len(pixels[m])): 
-            for p in pixels[m][b]:
-                pix.append(p)
-        for s in range(0,3):
-            cond=conditional(s,pix,wts_fs,wts_fpis)
+    for m in range(0,MTrain):
+        pixInfo = pix[m]
+        count[0,0] = countZeros(pixInfo)
+        count[0,1] = countOnes(pixInfo)
+        for s in range(0,3): 
+            cond[0,s] = conditional(s,pixInfo,wts_fs,wts_fpis)
             for x in range(0,2):
-                exp_prob[0,2*s+x]=exp_prob[0,2*s+x]+cond
-    grad=emp_prob-exp_prob
-    print grad
-    wts_fpis=wts_fpis+grad*(2.0/(2.0+t))
-    if np.linalg.norm(grad)<1e-3:
+                exp_prob[0,2*s+x]= exp_prob[0,2*s+x]+(count[0,x]*cond[0,s])
+    expProb = exp_prob/float(MTrain)
+    grad=emp_prob-expProb
+    normGrad = np.linalg.norm(grad[0])
+    wts_fpis[0]+=grad[0]*(2.0/(2.0+t))
+    if normGrad<1e-3:
         break
-            
-        
-# for m in range(0,M):
-#     pix=[]
-#     for b in range(0,len(pixels[m])): 
-#         for p in pixels[m][b]:
-#             pix.append(p)
-#     for s in range(0,3):
-#         for x in range(0,2):
-#             cond=conditional(s,pix,wts_fs,wts_fpis)
-#             #print cond
-#             for pi in range(0,len(pix)):
-#                 if x==pix[pi] and s==int(train_features['shape'][m]):
-#                     prob[m,2*s+x]=prob[m,2*s+x]+cond
-                    
-#     while (emp_prob[m]-prob[m]-(lam*wts_fpis[0])<-1e-1) or (emp_prob[m]-prob[m]-(lam*wts_fpis[0])>1e-1):
-#         wts_fpis[0]=wts_fpis[0]+((emp_prob[m]-prob[m]-(lam*wts_fpis[0]))*(2.0/(2.0+t)))
-#         cond=conditional(s,pix,wts_fs,wts_fpis)
-#         for pi in range(0,len(pix)):
-#                     if x==pix[pi] and s==int(train_features['shape'][m]):
-#                         prob[m,2*s+x]=prob[m,2*s+x]+cond
-#                         #print "hi1"
-#                 t=t+1
-#             t=1
-#            # print "emp ",emp_prob[m,2*s+x]
-#            # print "prob ",prob[m,2*s+x]
-#             #print "diff ",emp_prob[m,2*s+x]-prob[m,2*s+x]
-           
-        
-print wts_fpis 
+###############################################################################################
+######################################### end of MLE for 1st parameter ####################################################################
+print '1st done'
 
-
-# In[98]:
-
-
-#####calculate empirical probability for gradient wrt 3rd parameter
+############### MLE for second parameter for shape labels #########################
+#####calculate empirical probability for gradient wrt 2nd parameter
 emp_prob=np.zeros((1,3))
-
-for m in range(0,M):
+for m in range(0,MTrain):
     for s in range(0,3):
         if s==int(train_features['shape'][m]):
             emp_prob[0,s]=emp_prob[0,s]+1
 
 
-emp_prob=emp_prob/M*1.0
-print emp_prob
+emp_prob=emp_prob/MTrain*1.0
+##############################################################
 
 
-# In[108]:
-
-
-#############calculate marginal probability for gradient wrt 2nd parameter
+########calculate derivative of log(Z) wrt 2nd parameter
+cond=np.zeros((1,3))
 
 its=100
+pix=getPixels(MTrain,train_features['pixels'])
 
-for m in range(0,M):
-    pix=[]
-    for b in range(0,len(pixels[m])): 
-        for p in pixels[m][b]:
-            pix.append(p)
-    for t in range(0,its):
-        exp_prob=np.zeros((1,3))
+for t in range(0,its):
+    exp_prob=np.zeros((1,3))
+    for m in range(0,MTrain):
+        pixInfo = pix[m]
         for s in range(0,3):
-            exp_prob[0,s]=exp_prob[0,s]+conditional(s,pix,wts_fs,wts_fpis)
-        grad=emp_prob-exp_prob
-        print grad
-        wts_fs=wts_fs+grad*(2/(2+t))
-        if np.linalg.norm(grad)<1e-3:
-            break
-        
-
-# for m in range(0,M):
-#     pix=[]
-#     for b in range(0,len(pixels[m])): 
-#         for p in pix[m][b]:
-#             pix.append(p)
-#     for s in range(0,3):
-#         if s==int(train_features['shape'][m]):
-#             cond=conditional(s,pixels,wts_fs,wts_fpis)
-#             #print "cond ",cond
-#             prob[m,s]=cond
-#         t=1
-#         #print emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s])
-#         while (emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s])<-1e-1) or (emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s])>1e-1):
-#             wts_fs[0,s]=wts_fs[0,s]+(emp_prob[m,s]-prob[m,s]-(lam*wts_fs[0,s]))*(2.0/(2.0+t))
-#             #print wts_fs
-#             if s==int(train_features['shape'][m]):
-#                 cond=conditional(s,pix,wts_fs,wts_fpis)
-#                 prob[m,s]=cond
-#             t=t+1
-print wts_fs
+            cond[0,s] = conditional(s,pixInfo,wts_fs,wts_fpis)
+            exp_prob[0,s]=exp_prob[0,s]+cond[0,s]
+    grad=emp_prob-(exp_prob/float(MTrain))
+    wts_fs=wts_fs+grad[0]*(2.0/(2.0+t))
+    if np.linalg.norm(grad[0])<1e-3:
+        break
+############################################################
+############################################# end of MLE for 2nd parameter ##########################################
+print '2nd done'
 
 
-# In[ ]:
+
+################ Testing using test dataset ##############################
+def test(wts_fpis,wts_fs,pix):
+    cond=np.zeros((1,3))
+    maxi=0
+    maxClass=-1
+    for s in range(0,3):
+        cond[0,s]=conditional(s,pix,wts_fs,wts_fpis)
+        if cond[0,s]>maxi:
+            maxi=cond[0,s]
+            maxClass=s
+    return maxClass
 
 
-cond=np.zeros((1,3))
-m=0
-pix=[]
-    for b in range(0,len(pixels[m])): 
-        for p in pix[m][b]:
-            pix.append(p)
-for s in range(0,3):
-    cond[0,s]=conditional(s,pix,wts_fs,wts_fpis)
-    print cond[0,s]
+pix=getPixels(MTest,test_features['pixels'])
+print(len(pix[0]))
+count=0
+for m in range(0,MTest):
+    maxLikelyClass=test(wts_fpis,wts_fs,pix[m])
+    if maxLikelyClass==int(test_features['shape'][m]):
+        count+=1
+
+print (count*1.0/MTest)   ############# prints accuaracy of the model
+
 
